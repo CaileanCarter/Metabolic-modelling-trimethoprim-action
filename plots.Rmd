@@ -1,0 +1,1283 @@
+```{r setup, include=FALSE, echo=FALSE}
+require('knitr')
+opts_knit$set(root.dir = "C:/Users/carterc/OneDrive - Norwich BioScience Institutes/modelling_labbook")
+```
+
+```{r}
+library(ggplot2)
+library(readxl)
+library(ggsci)
+library(scales)
+library(fmsb)
+library(wordcloud2)
+library(dplyr)
+library(networkD3)
+library(gridExtra)
+library(grid)
+library(ggsignif)
+
+```
+
+```{r}
+folate_reacs = c('DIHYDROFOLATESYNTH-RXN', 'RXN-2881', '1.5.1.15-RXN', '1.5.1.20-RXN', 'GLYOHMETRANS-RXN', 'RXN-5061', 'METHENYLTHFCYCLOHYDRO-RXN', 'RXN0-1862', 'FORMATETHFLIG-RXN', 'RXN-13909',  'GCVMULTI-RXN', 'THYMIDYLATESYN-RXN', 'GART-RXN', 'DIHYDROFOLATEREDUCT-RXN', 'AICARTRANSFORM-RXN', 'METHYLENETHFDEHYDROG-NADP-RXN', 'HOMOCYSMETB12-RXN', '5-FORMYL-THF-CYCLO-LIGASE-RXN',  '3-CH3-2-OXOBUTANOATE-OH-CH3-XFER-RXN', 'FORMYLTHFDEFORMYL-RXN')
+```
+
+```{r}
+TMPbm.df <- read.csv('TMP_action_on_biomass.csv')
+TMPbm.df$condition <- factor(TMPbm.df$condition,
+    levels=c('total', 'folates', 'dhfr', 'met', 'pur', 'oxobut', 'nulfol'),
+    labels=c('Total', 'Folates', paste("\u0394","DHFR"), paste("\u0394", "Methionine"), paste("\u0394", "Purines"), paste("\u0394", "2-Ketovaline"), paste("\u0394", "Folates"))
+    )
+
+TMPbm.df$metabolite <- factor(TMPbm.df$metabolite,
+                levels=c('Adenine_bm_tx', 'Ala_AA_bm_tx', 'Arg_AA_bm_tx', 'Asn_AA_bm_tx', 'Asp_AA_bm_tx', 'ATP_bm_tx', 'CLPN_bm_tx', 'CoA_bm_tx', 'CTP_bm_tx', 'Cys_AA_bm_tx', 'dTTP_bm_tx', 'FAD_bm_tx', 'Gln_AA_bm_tx', 'Glt_AA_bm_tx', 'Gly_AA_bm_tx', 'GTP_bm_tx', 'Guanine_bm_tx', 'His_AA_bm_tx', 'Hypoxanthine_bm_tx', 'Ile_AA_bm_tx', 'Inosine_bm_tx', 'Leu_AA_bm_tx', 'LPS_bm_tx', 'Lys_AA_bm_tx', 'Met_AA_bm_tx', 'MeTHF_bm_tx', 'NAD_bm_tx', 'Palmitate_bm_tx', 'Peptidoglycan_bm_tx', 'Phe_AA_bm_tx', 'Pro_AA_bm_tx', 'Putrescine_bm_tx', 'Ser_AA_bm_tx', 'Spermidine_bm_tx', 'Starch_bm_tx', 'Thr_AA_bm_tx', 'Trp_AA_bm_tx', 'Tyr_AA_bm_tx', 'UDP-Glucose_bm_tx', 'UTP_bm_tx', 'Val_AA_bm_tx', 'Xanthine_bm_tx'),
+                labels=c('Adenine', 'Alanine', 'Arginine', 'L-asparagine', 'L-aspartate', 'ATP', 'Cardiolipin*', 'CoA', 'CTP', 'Cysteine', 'dTTP', 'FAD', 'L-glutamine', 'L-glutamate', 'Glycine', 'GTP', 'Guanine', 'Histidine', 'Hypoxanthine', 'Isoleucine', 'Inosine', 'Leucine', 'LPS*', 'Lysine', 'Methionine', '5-methyl THF', 'NAD', 'Palmitate', 'Peptidoglycan*', 'Phenylalanine', 'Proline', 'Putrescine', 'Serine', 'Spermidine', 'Starch', 'Threonine', 'Tryptophan', 'Tyrosine', 'UDP-Glucose', 'UTP', 'Valine', 'Xanthine')
+
+                )
+
+TMPbm.df[TMPbm.df$metabolite %in% c('Cardiolipin*', 'LPS*', 'Peptidoglycan*'),]$flux <-TMPbm.df[TMPbm.df$metabolite %in% c('Cardiolipin*', 'LPS*', 'Peptidoglycan*'),]$flux / 10
+
+
+TMPbm.df
+```
+
+```{r}
+bmnofol.df <- TMPbm.df[TMPbm.df$condition == paste("\u0394", "Folates") & TMPbm.df$flux != 0,]$metabolite
+
+TMPbm.df[!TMPbm.df$metabolite %in% bmnofol.df & TMPbm.df$condition=='Total',]
+
+```
+
+```{r, fig.height=2, fig.width=6}
+ggplot(TMPbm.df[TMPbm.df$metabolite %in% bmnofol.df & TMPbm.df$condition=='Total',], aes(x=metabolite, y=flux, fill=condition))+
+  geom_bar(stat='identity', width=0.6)+
+  scale_fill_jco()+
+  guides(colour='none', fill='none')+
+  theme_classic()+
+  theme(
+    strip.background = element_blank(),
+    strip.placement = "outside", 
+    axis.text.x.bottom = element_text(angle=45, hjust=1),
+    axis.line = element_line(size=1, color='black'),
+    panel.grid = element_blank()
+    )+
+  labs(y='Abs. total flux', x='Biomass components not requiring folates for synthesis')
+```
+
+```{r}
+ggsave(
+  "TMP_action_on_biomass_no_folates.png",
+  last_plot(),
+  device="png",
+  width=6,
+  height=2,
+  dpi=300
+)
+```
+
+```{r, fig.height=5, fig.width=8}
+ggplot(TMPbm.df[!TMPbm.df$metabolite %in% bmnofol.df,], aes(x=condition, y=flux, fill=condition))+
+  geom_bar(stat='identity', width=0.6)+
+  facet_wrap(.~metabolite, ncol=5)+
+  scale_fill_jco()+
+  # scale_y_continuous(trans='log')+
+  guides(colour='none', fill='none')+
+  theme_classic()+
+  theme(
+    strip.background = element_blank(),
+    strip.placement = "outside", 
+    # strip.text.y.right = element_text(angle=0, hjust=F),
+    axis.text.x.bottom = element_text(angle=90, hjust=1, vjust=.5),
+    axis.line = element_line(size=1, color='black'),
+    panel.grid = element_blank()
+    )+
+  geom_vline(xintercept=c(2.5, 6.5), colour='grey')+
+  annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, size=1.1)+
+  labs(y='Absolute total flux', x='Biomass components requiring folates for synthesis')
+
+```
+
+```{r}
+ggsave(
+  "TMP_action_on_biomass.png",
+  last_plot(),
+  device="png",
+  width=8,
+  height=5,
+  dpi=300
+)
+```
+
+
+
+```{r}
+dGTPabs.df <- read.csv('dGTPScans/dGTPScans_abs.csv')
+dGTPabs.df$pathway <- factor(dGTPabs.df$pathway,
+                            levels=c('Total', 'etc', 'tca', 'folates', 'purine_biosynth', 'purine_salvage'),
+                            # labels=c('Total', 'Purine salvage', 'Purine biosynthesis', 'Folates', 'TCA cycle', 'ETC & OP'))
+                            labels=c("Total", 'ETC & OP', 'TCA cycle', 'Folates', 'Purine biosynthesis', 'Purine salvage'))
+dGTPabs.df$condition <- factor(dGTPabs.df$condition, 
+                            levels=c('bacteriostatic', 'glycine', 'adenine', 'bactericidal'), 
+                            labels=c('M9', 'Gly', 'Ad', 'AdAA'))
+dGTPabs.df$flux = -dGTPabs.df$flux
+
+dGTPabs.df
+```
+
+```{r, fig.height=6, fig.width=6}
+# cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+# ggplot(dGTPabs.df, aes(flux, values, colour=interaction(pathway, rset, sep=':'))) +
+ggplot(dGTPabs.df, aes(flux, values, colour=pathway)) +
+  
+  geom_rect(
+    data=dGTPabs.df[which(dGTPabs.df$condition %in% c('AdAA','Ad') & dGTPabs.df$pathway=='Purine biosynthesis'),],
+    aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf), color=NA, fill='grey90', alpha=0.08)+
+  
+  geom_rect(
+    data=dGTPabs.df[which(dGTPabs.df$condition=='Gly' & dGTPabs.df$pathway=='TCA cycle'),],
+    aes(xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf), color=NA, fill='grey90', alpha=0.08)+
+  
+  geom_rect(
+    data=dGTPabs.df[which(dGTPabs.df$condition=='AdAA' & dGTPabs.df$pathway=='Folates' & dGTPabs.df$values == 0),],
+    aes(
+      xmin=min(flux),
+      xmax=max(flux),
+      ymin=-Inf, ymax=Inf,
+      fill=pathway), color=NA, fill='grey90', alpha=0.08)+
+  
+  geom_rect(
+    data=dGTPabs.df[which(dGTPabs.df$condition=='Ad' & dGTPabs.df$pathway=='Folates' & dGTPabs.df$values == 0),],
+    aes(
+      xmin=min(flux),
+      xmax=max(flux),
+      ymin=-Inf, ymax=Inf,
+      fill=pathway), color=NA, fill='grey90', alpha=0.08)+
+  
+  geom_rect(
+    data=dGTPabs.df[which(dGTPabs.df$condition=='AdAA' & dGTPabs.df$pathway=='TCA cycle' & dGTPabs.df$values == 0),],
+    aes(
+      xmin=min(flux),
+      xmax=max(flux),
+      ymin=-Inf, ymax=Inf,
+      fill=pathway), color=NA, fill='grey90', alpha=0.08)+
+  
+  geom_rect(
+    data=dGTPabs.df[which(dGTPabs.df$condition=='Ad' & dGTPabs.df$pathway=='TCA cycle' & dGTPabs.df$values == 0),],
+    aes(
+      xmin=min(flux),
+      xmax=max(flux),
+      ymin=-Inf, ymax=Inf,
+      fill=pathway), color=NA, fill='grey90', alpha=0.08)+
+  
+  geom_line(linewidth=1.1) +
+  scale_x_continuous(n.breaks=3)+ 
+  scale_color_jco()+
+  facet_grid(pathway~condition, scales='free')+
+  theme_minimal() +
+  theme(
+    strip.background = element_blank(),
+    strip.placement = "outside", 
+    strip.text.y.right = element_text(angle=0, hjust=F),
+    axis.line = element_line(linewidth=1, color='black'),
+    panel.grid = element_blank()
+    )+
+  annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, linewidth=1.1)+
+  guides(colour='none')+
+  labs(x='dGTP export (-flux)', y='Absolute total flux')
+
+```
+
+```{r}
+ggsave(
+  "dGTP demand.png",
+  last_plot(),
+  device="png",
+  width=6,
+  height=6,
+  dpi=300
+)
+```
+
+
+
+```{r}
+TMPsupp.df <- read.csv('TMP_media_supp.csv')
+
+TMPsupp.df <- TMPsupp.df[!TMPsupp.df$condition == 'folates',]
+
+TMPsupp.df$condition <- factor(TMPsupp.df$condition,
+    levels=c('total', 'adenine', 'glycine', 'met', 'AdAA', 'thymidine', 'thy+AdAA'),
+    labels=c('Total', '+Adenine', '+Glycine', '+Methionine', '+AdAA', '+Thymidine', '+AdAA+Thy'))
+
+TMPsupp.df$metabolite <- factor(TMPsupp.df$metabolite,
+                levels=c('Adenine_bm_tx', 'ATP_bm_tx', 'CoA_bm_tx', 'dTTP_bm_tx', 'FAD_bm_tx', 'GTP_bm_tx', 'Guanine_bm_tx', 'His_AA_bm_tx', 'Hypoxanthine_bm_tx', 'Inosine_bm_tx', 'Met_AA_bm_tx', 'NAD_bm_tx', 'Spermidine_bm_tx', 'Xanthine_bm_tx'),
+                labels=c('Adenine', 'ATP', 'CoA', 'dTTP', 'FAD', 'GTP', 'Guanine', 'Histidine', 'Hypoxanthine', 'Inosine', 'Methionine', 'NAD', 'Spermidine', 'Xanthine')
+                )
+
+TMPsupp.df$thy <- NA
+TMPsupp.df[!TMPsupp.df$condition =='Total',]$thy <- paste("\u0394", "Folates")
+
+TMPsupp.df
+```
+```{r, fig.height=5, fig.width=8}
+ggplot(TMPsupp.df, aes(x=condition, y=flux, fill=condition))+
+  geom_bar(stat='identity', width=0.6)+
+  facet_wrap(.~metabolite, scales='free_y', ncol=5)+
+  scale_fill_jco()+
+  guides(colour='none', fill='none')+
+  theme_classic()+
+  theme(
+    strip.background = element_blank(),
+    strip.placement = "outside", 
+    axis.text.x.bottom = element_text(angle=90, hjust=1, vjust=.5),
+    axis.line = element_line(linewidth=1, color='black'),
+    panel.grid = element_blank()
+    )+
+  geom_vline(xintercept=c(1.5, 5.5), colour='grey')+
+  annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, size=1)+
+  # annotate("segment", x=1.75, xend=7.5, y=80, yend=80, size=1.1, colour='red') + 
+  # annotate("text", x=5, y=85, label=paste("\u0394", "Folates")) + 
+  labs(y='Absolute total flux', x='')
+  
+```
+```{r}
+ggsave(
+  "TMP media counteraction.png",
+  last_plot(),
+  device="png",
+  width=6,
+  height=6,
+  dpi=300
+)
+```
+
+
+
+```{r}
+predicts.df <- read.csv("model_predictions.csv")
+predicts.df
+```
+
+
+```{r}
+grbm.df <- read.csv('growthrate_on_biomass.csv')
+grbm.df$Value <- grbm.df$Value / 10000
+grbm.df
+```
+
+```{r, fig.height=3, fig.width=8}
+ggplot(grbm.df[grbm.df$Measure=='ATP',], aes(x=Time, y=Value, colour=Group, group=Group))+
+  geom_rect(aes(xmin=25, xmax=67, ymin=-Inf, ymax=Inf), fill='grey', alpha=.02, color=NA)+
+  geom_line(linewidth=1.1) +
+  geom_point(size=2, shape=22, fill='white', stroke=1.1)+
+  facet_grid(~factor(Media, levels=c('M9', 'Gly', 'AdAA')), scale='free_y')+
+  scale_color_discrete(direction=-1, name="Treatment", labels=c("Media", "TMP"))+
+  theme_classic() +
+  labs(x="Time (minutes)", y=expression("Accum. ATP ("~x10^4~" units)"))+
+  theme(
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    strip.text.y.right =  element_text(angle=0),
+    legend.direction ="horizontal", 
+    legend.position = "bottom", 
+    axis.line = element_line(linewidth=1)
+    )
+```
+
+```{r}
+ggsave(
+  "Growth rate on biomass.png",
+  last_plot(),
+  device="png",
+  width=8,
+  height=3,
+  dpi=300
+)
+```
+
+
+
+```{r}
+mATPscan.df <- read_xlsx("mATP_weightscan.xlsx")
+mATPscan.df$value <- mATPscan.df$value / 10000
+mATPscan.df
+```
+
+```{r, fig.height=2.5, fig.width=6}
+ggplot(mATPscan.df, aes(x=weight, y=value, colour=reaction, linetype=reaction))+
+  geom_line(linewidth=1.1) +
+  facet_wrap(~factor(condition, levels=c('M9', 'Gly', 'AdAA')))+
+  theme_classic() +
+  scale_colour_jco()+
+  labs(x="Weighting", y=expression("mATP import ("~x10^4~" flux)"))+
+  theme(
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    strip.text.y.right =  element_text(angle=0),
+    legend.background = element_blank(),
+    legend.title = element_blank(),
+    legend.direction ="horizontal", 
+    legend.position = "bottom", 
+    axis.line = element_line(linewidth=1)
+    )
+```
+```{r}
+ggsave(
+  "mATP weight scan.png",
+  last_plot(),
+  device="png",
+  width=6,
+  height=2.5,
+  dpi=300
+)
+```
+
+
+
+
+```{r}
+min(mATPscan.df[mATPscan.df$reaction=='mATP' & mATPscan.df$condition=='M9' & mATPscan.df$value==0,]$weight)
+min(mATPscan.df[mATPscan.df$reaction=='mATP' & mATPscan.df$condition=='Gly' & mATPscan.df$value==0,]$weight)
+min(mATPscan.df[mATPscan.df$reaction=='mATP' & mATPscan.df$condition=='AdAA' & mATPscan.df$value==0,]$weight)
+
+```
+```{r}
+min(mATPscan.df[mATPscan.df$reaction=='Folates' & mATPscan.df$condition=='M9' & mATPscan.df$value==max(mATPscan.df[mATPscan.df$reaction=='Folates' & mATPscan.df$condition=='M9',]$value),]$weight)
+min(mATPscan.df[mATPscan.df$reaction=='Folates' & mATPscan.df$condition=='Gly' & mATPscan.df$value==max(mATPscan.df[mATPscan.df$reaction=='Folates' & mATPscan.df$condition=='Gly',]$value),]$weight)
+# use 12 for AdAA condition as well
+```
+
+
+```{r}
+ATPout.df <- read_excel('ATP_output.xlsx')
+ATPout.df$Value <- ATPout.df$Value/100000
+ATPout.df
+```
+
+
+
+```{r}
+ggsave(
+  "Incorporating mATP.png",
+  last_plot(),
+  device="png",
+  width=8,
+  height=3,
+  dpi=300
+)
+```
+
+
+```{r}
+ATPprop.df <- read.csv('ATP_proportions.csv')
+ATPprop.df
+```
+
+```{r, fig.height=1.3, fig.width=5}
+ggplot(ATPprop.df[ATPprop.df$Time %in% c(30, 75, 125),], aes(x=as.factor(Time), y=Group, fill=Change))+
+  geom_tile()+
+  # geom_text(aes(label=round(Change, digits=2), colour=Change))+
+  facet_grid(Group~factor(Media, levels=c('M9', 'Gly', 'AdAA')), scale='free_y')+
+  scale_fill_material('deep-orange', limits=c(0.2,0.8), breaks=c(.2,.4,.6,.8), labels=c(20,40,60,80), name='')+
+  scale_colour_material('blue-grey', reverse=TRUE)+
+  theme_bw()+
+  guides(colour='none', fill=guide_legend("mATP%"))+
+  theme(
+    strip.background = element_blank(),
+    strip.placement = "left", 
+    strip.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid = element_blank(),
+    legend.background = element_rect(linewidth=1),
+    legend.key.height=unit(.3, 'cm')
+    )+
+  labs(y='', x='Time (minutes)')
+
+```
+
+
+```{r}
+ggsave(
+  "ATP proportions.png",
+  last_plot(),
+  device="png",
+  width=5,
+  height=1.3,
+  dpi=300
+)
+```
+
+```{r}
+grbm1.df <- grbm.df[grbm.df$Measure == 'ATP',]
+grbm1.df$Measure <- 'Growth rate'
+grbm1.df$Value <- grbm1.df$Value * 0.1
+
+ATPout1.df <- ATPout.df[ATPout.df$Measure == 'Total',]
+ATPout1.df$Measure <- 'Growth rate & ATP rate'
+
+invivo.df <- rbind(grbm1.df[,2:ncol(grbm1.df)], ATPout1.df[,2:ncol(ATPout1.df)])
+invivo.df
+```
+
+```{r, fig.height=3, fig.width=6}
+ggplot(invivo.df, aes(x=Time, y=Value, colour=Group))+
+  geom_rect(aes(xmin=25, xmax=67, ymin=-Inf, ymax=Inf), fill='grey', alpha=.02, color=NA)+
+  geom_line(linewidth=1.1)+
+  geom_point(size=2, shape=22, fill='white', stroke=1.1)+
+  facet_grid(factor(Measure, levels=c('Growth rate', 'Growth rate & ATP rate'), labels=c('Biomass ATP', expression('Total ATP\n(mATP +\nbiomass ATP)')))~factor(Media, levels=c('M9', 'Gly', 'AdAA')), scale='free_y')+
+  scale_color_discrete(direction=-1, name="Treatment", labels=c("Media", "TMP"))+
+  theme_classic() +
+  labs(x="Time (minutes)", y=expression("ATP ("~x10^4~" RU)"))+
+  theme(
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    strip.text.y.right =  element_text(angle=0),
+    legend.direction ="horizontal", 
+    legend.position = "bottom", 
+    axis.line = element_line(linewidth=1)
+  )+
+
+  annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, linewidth=1.1)
+  
+```
+
+```{r}
+ggsave(
+  "Incorporating omics.png",
+  last_plot(),
+  device="png",
+  width=6,
+  height=3,
+  dpi=300
+)
+```
+
+
+
+```{r}
+expdat.df <- read.csv('ATP_expdata_290623.csv')
+expdat.df$Value <- expdat.df$Value / 100000
+expdat.df
+```
+
+
+```{r, fig.height=2.5, fig.width=6}
+ggplot(expdat.df[expdat.df$Measure=='Total',],
+       aes(x=Time, y=Value, colour=factor(Group, levels=c('Control', 'Treated'), labels=c('Media', 'TMP'))))+
+  geom_rect(aes(xmin=25, xmax=67, ymin=-Inf, ymax=Inf), fill='grey', alpha=.02, color=NA)+
+  geom_line(linewidth=1.1) +
+  geom_point(size=2, shape=22, fill='white', stroke=1.1)+
+  facet_grid(.~factor(Media, levels=c('M9', 'Gly', 'AdAA')), scale='free_y')+
+  scale_color_discrete(direction=-1, name="Treatment", labels=c("Media", "TMP"))+
+  theme_classic() +
+  labs(x="Time (minutes)", y=expression("ATP ("~x10^4~" RU)"))+
+  theme(
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    strip.text.y.right =  element_text(angle=0),
+    legend.direction ="horizontal", 
+    legend.position = "bottom", 
+    axis.line = element_line(linewidth=1)
+    )
+```
+
+
+```{r}
+ggsave(
+  "mATPscan.png",
+  last_plot(),
+  device="png",
+  width=6,
+  height=2.5,
+  dpi=300
+)
+```
+
+
+```{r}
+ATPprop.df <- read.csv('ATP_exp_proportions.csv')
+ATPprop.df$Change <- ATPprop.df$Change * 100 # Change is actually just mATP*100
+ATPprop.df
+```
+
+```{r}
+max(ATPprop.df$Change) 
+min(ATPprop.df$Change)
+```
+
+
+```{r, fig.height=1.3, fig.width=5}
+ggplot(ATPprop.df[ATPprop.df$Time %in% c(30, 75, 125),], aes(x=as.factor(Time), y=Group, fill=Change))+
+  geom_tile()+
+  # geom_text(aes(label=round(Change, digits=2), colour=Change))+
+  facet_grid(Group~factor(Media, levels=c('M9', 'Gly', 'AdAA')), scale='free_y')+
+  scale_fill_material('deep-orange', limits=c(0,60), breaks=c(0,20,40,60), labels=c(0,20,40,60), name='')+
+  scale_colour_material('blue-grey', reverse=TRUE)+
+  theme_bw()+
+  guides(colour='none', fill=guide_legend("mATP%"))+
+  theme(
+    strip.background = element_blank(),
+    strip.placement = "left", 
+    strip.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid = element_blank(),
+    legend.background = element_rect(linewidth=1),
+    legend.key.height=unit(.3, 'cm')
+    )+
+  labs(y='', x='Time (minutes)')
+```
+```{r}
+ggsave(
+  "mATP proportions.png",
+  last_plot(),
+  device="png",
+  width=5,
+  height=1.3,
+  dpi=300
+)
+```
+
+
+```{r}
+PageRank.df <- read.csv('PageRanks_sumpathways.csv')
+PageRank.df
+```
+
+
+```{r, fig.height=3, fig.width=9}
+# Save to png
+# png("PageRank_ATP.png", res = 300, width=9, height=3, units='in')
+
+# Define settings for plotting in a 3x4 grid, with appropriate margins:
+par(mar = rep(0.8,4), mfrow = c(1,3), xpd=TRUE)
+
+# main loop
+for (i in c('M9', 'Gly', 'AdAA')){
+  df <- PageRank.df[PageRank.df$Media %in% c('Max', 'Min', i), 3:ncol(PageRank.df)]
+  rownames(df) <- df[,1]
+  radarchart(
+    df[,2:ncol(df)],
+    axistype = 4,
+    seg=5,
+    caxislabels = c(0, 0.01, 0.02, 0.03, 0.04, 0.05),
+    calcex=1.1,
+    title=i,
+    plwd = 2,
+    pcol= c("#00BFC4", "#F8766D"),
+    pfcol = scales::alpha(c("#00BFC4", "#F8766D"), .3),
+    # grid
+    cglcol = 'grey', cglty=1, cglwd = 2,
+    axislabcol = 'grey40',
+    
+    #label names
+    vlabels=c("ETC & OP", "Folates", expression("Purine\nsalvage"), expression("Purine\nBiosynthesis"), "TCA cycle"),
+    vlcex = 1
+    )
+  
+    if (i=='Gly'){
+  
+      legend(
+        x = "bottom", legend = c('Control', 'Treated'), horiz = TRUE,
+        bty = "n", pch = 20 , col = c("#00BFC4", "#F8766D"),
+        text.col = "black", cex = 1, pt.cex = 1.5
+        )}
+  }
+# dev.off()
+
+```
+
+
+```{r}
+PageRank.df[PageRank.df$Media %in% c('Max', 'Min', i),3:ncol(PageRank.df)]
+```
+
+```{r}
+sumATP.df <- read.csv('sum_ATPdata.csv')
+sumATP.df$Pathway <- factor(sumATP.df$Pathway,
+    levels=c('Total', "etc_reacs", "tca_reacs", "folate_reacs", "purine_reacs", "pur_salvages"), 
+    labels=c("Total", 'ETC & OP', 'TCA Cycle', 'Folates', 'Pur. biosyn.', 'Pur. Salvage'))
+sumATP.df
+```
+
+
+```{r, fig.height=2.5, fig.width=4.5}
+ggplot(sumATP.df, 
+       aes(x=Pathway, 
+           y=Change, 
+           fill=Pathway))+
+  geom_bar(stat='identity')+
+  facet_wrap(.~factor(Media, levels=c('M9', 'Gly', 'AdAA')))+
+  geom_hline(yintercept = 0, col='grey', linewidth=1.1)+
+  # scale_fill_jco()+
+  scale_fill_jco(name="")+
+  guides(colour='none', fill='none')+
+  theme_classic()+
+  theme(
+    strip.background = element_blank(),
+    strip.placement = "outside", 
+    axis.text.x.bottom = element_text(angle=90, hjust=1, vjust=.5),
+    axis.title.y = element_text(vjust=-2),
+    axis.line = element_line(linewidth=1, color='black'),
+    panel.grid = element_blank()
+    )+
+  labs(y=expression('% change in\nabs. total flux'), x='')
+```
+
+```{r}
+ggsave(
+  "mATPscan_fluxchange.png",
+  last_plot(),
+  device="png",
+  width=4.5,
+  height=2.5,
+  dpi=300
+)
+```
+
+```{r}
+tx.df <- read.csv('mATP_transporters_usage.csv')
+tx.df$Reaction <- factor(tx.df$Reaction, 
+                         levels = c('AMMONIUM_tx', 'CO2_tx', 'Glc_mm_tx', 'H2O_tx', 'Metyltioadenosine_bp_tx', 'O2_tx', 'Pi_tx', 'SO4_tx', 'Ade_nt_mm_tx', 'Gly_aa_mm_tx', 'Met_aa_mm_tx'))
+tx.df
+```
+
+
+```{r, fig.height=2.5, fig.width=6}
+ggplot(tx.df, aes(x=Reaction, y=Media, fill=Changed))+
+  geom_tile()+
+  scale_fill_gradientn(
+    breaks=c(-100, -50, 0, 100, 200), labels=c(-100,-50, 0, 100, 200), colours=c('#d7191c', '#F8F8FF', '#2c7bb6'), guide='colourbar', limits=c(-100,210), values=c(0,.32,1)
+    )+
+  scale_x_discrete(labels = c('Ammonium', expression(~CO[2]), 'Glucose', expression("H"[2]*"O"), 'Metyltioadenosine', expression(~O[2]), 'Phosphate', expression(~SO[4]), 'Adenine', 'Glycine', 'Methionine'))+
+  theme_bw()+
+  guides(colour='none', fill=guide_legend(expression('% Change\nin flux')))+
+  theme(
+    strip.background = element_blank(),
+    strip.placement = "left", 
+    strip.text.y = element_blank(),
+    axis.text.x = element_text(angle=45, hjust=1, vjust=1),
+    panel.grid = element_blank(),
+    legend.background = element_rect(linewidth=1),
+    legend.key.height=unit(.3, 'cm')
+    )+
+  labs(y='Media', x='Transporter')
+```
+```{r}
+ggsave(
+  "mATPscan_transporters.png",
+  last_plot(),
+  device="png",
+  width=6,
+  height=2.5,
+  dpi=300
+)
+```
+
+
+```{r}
+distances.df <- data.frame(
+  Media = c('M9', 'Gly', 'AdAA', 'M9', 'Gly', 'AdAA'),
+  Distance = c('Euclidean','Euclidean','Euclidean','Cosine','Cosine','Cosine'),
+  Value = c(411949.32277281245, 373507.6677232497, 387533.31133171497, 0.036443652898269896, 0.09256676984359447, 0.09100311654780158)
+  )
+
+distances.df$Value[distances.df$Distance == 'Euclidean'] <- distances.df$Value[distances.df$Distance == 'Euclidean'] / 100000
+distances.df$Value[distances.df$Distance == 'Cosine'] <- distances.df$Value[distances.df$Distance == 'Cosine'] * 100
+
+distances.df
+```
+
+```{r, fig.height=1.3, fig.width=3}
+ggplot(distances.df, aes(x=factor(Media, levels=c('M9', 'Gly', 'AdAA')), y=Distance, fill=Value))+
+  geom_tile()+
+  geom_text(aes(label=round(Value, digits=2), colour=Value))+
+  facet_wrap(.~Distance, scale='free_y', ncol=1)+
+  scale_fill_material('deep-orange', limits=c(2,10), breaks=c(2,6,10), labels=c(2,6,10), name='')+
+  scale_colour_material('blue-grey', reverse=TRUE)+
+  # scale_fill_gradient(limits=c(0,10), breaks=c(0,5,10), labels=c(0,5,10))+
+  theme_bw()+
+  guides(colour='none')+
+  theme(
+    strip.background = element_blank(),
+    strip.placement = "left", 
+    strip.text.x = element_blank(),
+    axis.title.y = element_blank(),
+    # axis.line = element_line(linewidth=1, color='black'),
+    panel.grid = element_blank(),
+    legend.background = element_rect(linewidth=1),
+    legend.key.height=unit(.3, 'cm')
+    )+
+  
+  
+  labs(y='', x='')
+```
+
+```{r}
+ggsave(
+  "mATP_distances.png",
+  last_plot(),
+  device="png",
+  width=3,
+  height=1.3,
+  dpi=300
+)
+```
+
+```{r, fig.height=1.5, fig.width=2.5}
+# Legend for mATP network maps
+
+# Create a DataFrame
+data <- data.frame(
+  Xdata = c(0.5:6), Ydata = c(0.5:6))
+  
+# Create a Scatter Plot
+gplot <- ggplot(data, aes(Xdata, Ydata, fill = Xdata)) +   
+  geom_point(size = 1)+
+  scale_fill_gradientn(
+    breaks=c(0.5,3,6), labels=c("0.5", "3", "6"), colours=c('#868686', '#2c7bb6', '#d7191c'), 
+    name=expression(~log[10](abs.~flux)), guide='colourbar', 
+    values=c(0.008,0.5,1), limits=c(0.5,6)
+    )+
+  theme(legend.title = element_text(face='bold', vjust=.85), legend.direction="horizontal")+
+  guides(colour = guide_colourbar(title.position="top"))
+
+# Draw Only Legend without plot
+# Grab legend from gplot
+legend <- cowplot::get_legend(gplot)                    
+  
+# Create new plot window
+grid.newpage()                              
+  
+# Draw Only legend 
+grid.draw(legend)
+```
+```{r}
+ggsave(
+  "maps/mATP/scalebar.png",
+  legend,
+  device="png",
+  height=1.5,
+  width=2.5,
+  dpi=300
+)
+```
+
+
+
+```{r}
+comcol <- paste("d3.scaleOrdinal() .domain([",paste(c(0:10), collapse=','), ',', paste(unique(compath.df$Pathway), collapse=','), "]) .range([", paste(pal_jco(alpha=0.7)(10), collapse=','), ',', paste(pal_jco(alpha=0.7)(10), collapse=','),',', paste(pal_npg(alpha=0.7)(4), collapse=','), "])")
+
+# 'd3.scale.category10().range(["blue", "blue" , "blue", "red", "red", "yellow", "purple", "purple"]).domain(["group_A", "group_B","group_C", "group_D", "group_E", "group_F", "group_G", "group_H"])'
+
+
+compathcol <- 'd3.scaleOrdinal().range(["#0073C2B2", "#EFC000B2", "#868686B2", "#CD534CB2", "#7AA6DCB2", "#003C67B2", "#8F7700B2", "#3B3B3BB2", "#A73030B2", "#4A6990B2", "#0073C2B2", "#E64B35B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2", "#F39B7FB2", "#8491B4B2", "#91D1C2B2", "#DC0000B2", "#7E6148B2", "#B09C85B2", "#4DBBD5B2", "#00A087B2", "#3C5488B2"]).domain(["C0","C1","C2","C3","C4","C5","C6","C7","C8","C9","C10","Amino_acids", "Cell_Wall", "Energy", "Purine_Biosynthesis", "Transporters", "Sugar_Biosynthesis", "Cofactor_Biosynthesis", "Pyrimidines", "Chorismate_Biosynthesis", "PPP", "Purine_Salvage", "Folates", "Sulfur_Metabolism", "TCA_Cycle"])'
+
+comcol <- data.frame(community=c(0:10), colour=c(pal_jco()(10),"#0073C2"))
+
+comcol
+```
+
+```{r}
+paste(pal_npg(alpha=0.7)(10), collapse='", "')
+```
+
+
+```{r}
+metprop.df <- read.csv("metabolites_prop_communities.csv")
+metprop.df[metprop.df$word=='CARBON-DIOXIDE',]$word <- 'CO2'
+metprop.df[metprop.df$word=='WATER',]$word <- 'H2O'
+metprop.df <- metprop.df[metprop.df$freq>1,]
+metprop.df <- metprop.df[!(metprop.df$word %in%  c('PROTON', 'H2O')),]
+metprop.df
+```
+
+```{r, fig.height=5, fig.width=8}
+
+wordclouds = lapply(0:10, function(i)
+  wordcloud2(metprop.df[metprop.df$Community == i, 2:3], rotateRatio = 1, minRotation = 0, maxRotation = 0, color = comcol[comcol$community==i,]$colour, size=.7)
+)
+
+```
+
+```{r}
+comcol[comcol$community==7,]$colour
+```
+
+
+```{r}
+wordclouds
+```
+
+```{r}
+for (i in c(1:11)){
+  htmlwidgets::saveWidget(wordclouds[[i]], paste("wordclouds/",i-1, ".html"), selfcontained = F)
+}
+```
+
+```{r}
+htmlwidgets::saveWidget(wordclouds[[10]], paste("wordclouds/",10-1, ".html"), selfcontained = F)
+```
+
+
+```{r}
+compath.df <- read.csv("community_pathway_links.csv")
+# compath.df <- compath.df[compath.df$Pathway != 'Transporters', ]
+compath.df
+```
+```{r}
+nodes <- data.frame(
+  name=c(as.character(compath.df$OwnPathways), 
+  as.character(compath.df$Community)) %>% unique()
+)
+ 
+compath.df$IDsource <- match(compath.df$OwnPathways, nodes$name)-1 
+compath.df$IDtarget <- match(compath.df$Community, nodes$name)-1
+
+# Make the Network
+s <- sankeyNetwork(Links = compath.df, Nodes = nodes,
+              Source = "IDsource", Target = "IDtarget",
+              Value = "Freq", NodeID = "name", LinkGroup = "OwnPathways", NodeGroup="name",
+              sinksRight=FALSE, iterations=0, height=600, width=400, fontSize = 14, colourScale = compathcol)
+
+#Save image
+htmlwidgets::saveWidget(s, "PathwayLinksCommunity.html")
+
+s
+```
+
+```{r}
+comflux <- read.csv('CommunityFlux.csv')
+comflux$Community <- factor(comflux$Community, labels=paste('C', c(0:10), sep=''))
+comflux[-1 < comflux$Change & comflux$Change < 1,]$Change <- 0
+comflux
+```
+
+```{r, fig.height=1.5, fig.width=20}
+ggplot(comflux, aes(x=factor(Media, levels=c('M9', 'Gly', 'AdAA')), y=Change, fill=Community))+
+  geom_hline(yintercept = 0, col='grey', linewidth=1.1)+
+  geom_bar(stat='identity')+
+  facet_wrap(.~Community, nrow=1, strip.position = 'right', scales='free_y')+
+  # scale_fill_jco(name="")+
+  scale_fill_manual(values=comcol$colour)+
+  theme_classic() +
+  labs(x="", y=expression('% change'))+
+  guides(colour='none', fill='none')+
+  theme(
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    strip.text.y.right =  element_text(angle=0),
+    strip.text = element_text(face='bold'),
+    legend.direction ="horizontal", 
+    legend.position = "bottom", 
+    axis.line = element_line(linewidth=1)
+    )+
+  annotate("segment", x=-Inf, xend=Inf, y=-Inf, yend=-Inf, linewidth=1.1)
+
+```
+
+```{r}
+comcol
+```
+
+
+```{r}
+ggsave(
+  "Community_abs_flux.png",
+  last_plot(),
+  device="png",
+  width=20,
+  height=1.5,
+  dpi=300
+)
+```
+
+
+```{r}
+data.df <- read_excel("Fig1.xlsx")
+data.df <- data.df[,-1]
+colnames(data.df)[3] <- "Time"
+colnames(data.df)[4] <- "ATP"
+data.df
+
+```
+
+```{r}
+(data.df[(data.df$Media == 'Gly') & (data.df$Time == 155) & (data.df$Group == 'Control'),]$ATP - data.df[(data.df$Media == 'Gly') & (data.df$Time == 75) & (data.df$Group == 'Control'),]$ATP) / (155-75)
+```
+
+```{r}
+(data.df[(data.df$Media == 'M9') & (data.df$Time == 155) & (data.df$Group == 'Control'),]$ATP - data.df[(data.df$Media == 'M9') & (data.df$Time == 75) & (data.df$Group == 'Control'),]$ATP) / (155-75)
+```
+
+
+
+```{r, fig.height=3, fig.width=8}
+
+ggplot(
+  data.df, aes(Time, ATP, colour=Group, group=Group)
+  ) +
+  geom_rect(aes(xmin=25, xmax=67, ymin=-Inf, ymax=Inf), fill='grey', alpha=.02, color=NA)+
+  geom_line(size=1.1)+
+  geom_errorbar(aes(ymin=ATP-CI, ymax=ATP+CI), size=1.1)+
+  geom_point(size=2, shape=22, fill='white', stroke=1.1)+
+  facet_wrap(~factor(Media, levels=c('M9', 'Gly', 'AdAA'))) +
+  scale_color_discrete(direction=-1, name="Treatment", labels=c("Media", "TMP"))+
+  theme_classic() +
+  labs(x="Time (minutes)", y=expression("ATP (RLU "~x10^4~")"))+
+  theme(
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    legend.direction ="horizontal", 
+    legend.position = "bottom", 
+    axis.line = element_line(size=1)
+    )
+
+```
+
+```{r}
+ggsave(
+  "Figure 1.png",
+  last_plot(),
+  device="png",
+  width=8,
+  height=3,
+  dpi=300
+)
+```
+
+```{r}
+avg.df <- read_excel("C:/Users/carterc/OneDrive - Norwich BioScience Institutes/manuscripts/TMP-Rx ATP-bio/ATPval.xlsx")
+```
+```{r}
+avg.df$dfrA[avg.df$dfrA == 0] <- 'NI'
+avg.df$FLU <- avg.df$FLU*100 - 100
+```
+
+
+```{r, fig.height=5, fig.width=7}
+ggplot(
+  avg.df,
+  aes(x=factor(Media, levels=c('M9','Gly','AdAA')), y=FLU, colour=factor(TRI, levels=c('S', 'R')), fill=factor(TRI, levels=c('S', 'R')))
+  )+
+  geom_dotplot(
+    # mapping=aes(fill=TRI),
+    binaxis='y',
+    stackdir='center',
+    alpha=.5
+  ) +
+  geom_boxplot(size=1.5, alpha=0)+
+  scale_color_discrete(direction=-1, name="Phenotype", labels=c("Susceptible", "Resistant"))+
+  scale_fill_discrete(direction=-1, name="Phenotype", labels=c("Susceptible", "Resistant"))+
+  theme_classic()+
+  theme(
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    legend.direction ="horizontal", 
+    legend.position = "bottom", 
+    legend.text = element_text(size=11),
+    axis.line = element_line(linewidth=1),
+    axis.text.x = element_text(size=10),
+    axis.text.y = element_text(size=10)
+    )+
+  scale_y_continuous(breaks=round(seq(min(avg.df$FLU), max(avg.df$FLU), by=40), 0))+
+  labs(x='Media', y="Change in fluorescence (%)")+
+  geom_signif(
+    xmin=c(0.8, 1.8, 2.8),
+    xmax=c(1.2, 2.2, 3.2),
+    y_position=c(110, 140, 140),
+    annotation=c("p<0.001", "p<0.001", "p=0.01"),
+    size=1,
+    textsize=4,
+    color='grey40'
+  )
+
+```
+```{r}
+ggsave(
+  "Figure 2.png",
+  last_plot(),
+  device="png",
+  width=7,
+  height=5,
+  dpi=300
+)
+```
+
+```{r}
+# avg.df[(avg.df$dfrA == 'NI') & (avg.df$TRI == 'R'),]
+avg.df[(avg.df$FLU <= -10) & (avg.df$TRI == 'R') & (avg.df$Media == 'Gly'),]
+
+```
+
+
+```{r}
+flu.df <- read_excel("C:/Users/carterc/OneDrive - Norwich BioScience Institutes/manuscripts/TMP-Rx ATP-bio/FLU_byisolate.xlsx")
+
+flu.df
+```
+
+```{r, fig.height=8, fig.width=8}
+ggplot(flu.df,
+  aes(x=factor(Isolate), y=FLU_corr, colour=factor(TRI, levels=c('S', 'R')))
+  )+
+  geom_rect(aes(ymin=-STD*2, ymax=STD*2, xmin=-Inf, xmax=Inf, x=NULL, y=NULL, fill=TRI), alpha=0.08, fill='grey90')+
+  geom_abline(intercept=0, slope=0, size=1)+
+  geom_point()+
+  geom_line()+
+  geom_rug(outside=T, sides='r')+coord_cartesian(clip='off')+
+  facet_grid(factor(Media, levels=c('M9', 'Gly', 'AdAA')) ~ factor(TRI, levels=c('S', 'R')), space='free', scales='free_x')+
+  scale_color_discrete(direction=-1, name="Phenotype", labels=c("Susceptible", "Resistant"))+
+  scale_fill_discrete(direction=-1, name="Phenotype", labels=c("Susceptible", "Resistant"))+
+  theme_classic()+
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    strip.text.x = element_blank(),
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    axis.line = element_line(size=1),
+    strip.text.y.right = element_text(angle=0),
+    legend.position='bottom'
+  )+
+  labs(x="Isolate", y="Adjusted change in fluorescence (%)")
+```
+
+```{r}
+ggsave(
+  "Figure sample distribution.png",
+  last_plot(),
+  device="png",
+  width=8,
+  height=8,
+  dpi=300
+)
+```
+
+```{r}
+roc.df <- read_excel("ROC.xlsx")
+roc.df <- roc.df[,-1]
+roc.df$TNR <- 1 - roc.df$FPR
+roc.df
+```
+
+
+```{r, fig.height=2.5, fig.width=7}
+ggplot(
+  roc.df,
+  aes(FPR, TPR)
+  )+
+  facet_wrap(~factor(Media, levels=c('M9', 'Gly', 'AdAA'))
+  )+
+  geom_abline(intercept=0, slope=1, color='#F8766D', size=1.1)+
+  geom_line(size=1.1, color='#619CFF')+
+  #scale_x_reverse()+
+  theme_classic()+
+  theme(
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    legend.direction ="horizontal", 
+    legend.position = "bottom", 
+    axis.line = element_line(size=1)
+    )+
+  labs(x="1-Specificity", y='Sensitivity')
+
+```
+```{r}
+ggsave(
+  "Figure 3.png",
+  last_plot(),
+  device="png",
+  width=7,
+  height=2.5,
+  dpi=300
+)
+```
+
+
+```{r}
+simple_auc <- function(TPR, FPR){
+  # inputs already sorted, best scores first 
+  dFPR <- c(diff(FPR), 0)
+  dTPR <- c(diff(TPR), 0)
+  return(sum(TPR * dFPR) + sum(dTPR * dFPR)/2)
+}
+
+with(roc.df[which(roc.df$Media == "M9"),], simple_auc(TPR, FPR))
+with(roc.df[which(roc.df$Media == "Gly"),], simple_auc(TPR, FPR))
+with(roc.df[which(roc.df$Media == "AdAA"),], simple_auc(TPR, FPR))
+```
+```{r}
+roc.df$Youden <- roc.df$TPR + roc.df$TNR - 1
+subset(roc.df, as.logical(ave(Youden, Media, FUN = function(x) x == max(x))))
+```
+
+```{r}
+dfrA.df <- avg.df[(avg.df$TRI == 'R') & !(avg.df$dfrA %in% c('dfrA1/dfrA14', 'dfrA15', 'dfrA36')) & !(avg.df$Media == 'AdAA'),]
+dfrA.df$dfrA <- factor(dfrA.df$dfrA,
+    levels=c('dfrA1', 'dfrA5', 'dfrA12', 'dfrA14', 'dfrA17', 'dfrA1/dfrA12', 'NI'))
+    # labels=c(expression(paste(italic("dfrA1"))), expression(italic('dfrA5')), expression(italic('dfrA12')), expression(italic('dfrA14')), expression(italic('dfrA17')), expression(italic('dfrA1')~'/'~italic('dfrA12')), 'NI'))
+```
+
+
+```{r, fig.height=5, fig.width=3.5}
+ggplot(
+  dfrA.df,
+  aes(x=FLU, fill=dfrA)
+  )+
+  geom_histogram(
+    alpha=.7,
+    binwidth = 10
+  )+
+  geom_density(
+    mapping=aes(fill=dfrA, color=dfrA),
+    alpha=.5,
+    size=1
+  ) +
+  facet_grid(dfrA ~ factor(Media, levels=c('M9', 'Gly')), scale='free_y', ) +
+  coord_cartesian(ylim=c(0, 6))+
+  scale_y_continuous(breaks=c(0,3,6))+
+  theme_classic()+
+  theme(
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    axis.line = element_line(size=1),
+    strip.text.y.right = element_text(angle=0, hjust=F),
+    legend.position='none',
+    panel.spacing.y=unit(1, 'line')
+    )+
+  # guides(fill='none')+
+  labs(x='Change in fluorescence (%)', y="Count")
+
+```
+```{r}
+ggsave(
+  "Figure 4.png",
+  last_plot(),
+  device="png",
+  width=3.5,
+  height=5,
+  dpi=300
+)
+```
+
+
+```{r}
+aggregate(FLU ~ dfrA + Media, data=avg.df[avg.df$dfrA != 'NI' & avg.df$Media != 'AdAA',], FUN=sd)
+```
+
+```{r}
+avg.df[avg.df$dfrA != 'NI' & avg.df$Media == 'Gly' & avg.df$FLU <= -15,]
+```
+
+
+
+```{r}
+data.df <- read_excel("FigS1.xlsx")
+data.df <- data.df[,-1]
+colnames(data.df)[3] <- "Time"
+colnames(data.df)[4] <- "ABS"
+data.df
+```
+
+
+```{r, fig.height=2.4, fig.width=5.5}
+
+ggplot(
+  data.df, aes(Time, ABS, colour=Group, group=Group)
+  ) +
+  geom_rect(aes(xmin=25, xmax=67, ymin=-Inf, ymax=Inf), fill='grey', alpha=.02, color=NA)+
+  geom_line(size=1.1)+
+  geom_errorbar(aes(ymin=ABS-CI, ymax=ABS+CI), size=1.1)+
+  geom_point(size=2, shape=22, fill='white', stroke=1.1)+
+  facet_wrap(~factor(Media, levels=c('M9', 'Gly', 'AdAA'))) +
+  scale_color_discrete(direction=-1, name="Treatment", labels=c("Media", "TMP"))+
+  theme_classic() +
+  labs(x="Time (minutes)", y=expression(Absorbance~(OD[600])))+
+  theme(
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    legend.direction ="horizontal", 
+    legend.position = "bottom", 
+    axis.line = element_line(size=1)
+    )
+```
+
+```{r}
+ggsave(
+  "Figure S1.png",
+  last_plot(),
+  device="png",
+  width=5.5,
+  height=2.4,
+  dpi=300
+)
+```
+
+
+```
+```
+```{r}
+with(avg.df[(avg.df$Media == 'M9') & (avg.df$FLU < 0.85) & (avg.df$TRI == 'R'),], table(dfrA))
+```
+```{r}
+avg.df[(avg.df$Media == 'M9') & (avg.df$FLU < 0.85) & (avg.df$TRI == 'R'),]
+```
+
+
+
+
+```{r}
+pre.df <- read_excel('C:/Users/carterc/OneDrive - Norwich BioScience Institutes/manuscripts/TMP-Rx ATP-bio/predictions.xlsx')
+colnames(pre.df)[4] <- "TRI"
+pre.df$FLU <- pre.df$FLU*100 - 100
+pre.df
+```
+```{r}
+real.df <- avg.df
+real.df$TRI[which(real.df$TRI == 'S')] <- 0
+real.df$TRI[which(real.df$TRI == 'R')] <- 1
+# as.double()
+# real.df$FLU <- real.df$FLU*100 - 100
+real.df
+```
+
+```{r, fig.height=3, fig.width=7}
+ggplot(
+  real.df,
+  aes(FLU, TRI)
+  )+
+  geom_line(
+    aes(FLU, TRI),
+    data=pre.df,
+    color='black',
+    alpha=0.5,
+    size=1.1
+  )+
+  geom_point(
+    aes(FLU, as.double(TRI), color=TRI),
+    inherit.aes = F
+    )+
+  scale_color_discrete(direction=-1, name="Phenotype", labels=c("Susceptible", "Resistant")
+    )+
+  facet_wrap(~factor(Media, levels=c('M9', 'Gly', 'AdAA')), ncol=3, dir='h', scale='free_x')+
+  theme_classic()+
+  theme(
+    strip.background = element_blank(), 
+    strip.placement = "outside", 
+    axis.line = element_line(size=1),
+    legend.direction ="horizontal", 
+    legend.position = "bottom", 
+    )+
+  labs(x='Change in fluorescence (%)', y="Pr(TRI)")
+```
+```{r}
+ggsave(
+  "Figure S2.png",
+  last_plot(),
+  device="png",
+  width=7,
+  height=3,
+  dpi=300
+)
+```
